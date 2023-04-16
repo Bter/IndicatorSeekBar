@@ -7,6 +7,7 @@
 这是一个安卓自定义SeekBar库。 另外, 如果你不需要指示器并且希望文字显示在SeekBar的顶部, 请看另外一个[SeekBar库](https://github.com/warkiz/TickSeekBar)。  [  English.md ](https://github.com/warkiz/IndicatorSeekBar/blob/master/README.md)
 
 
+
 ## 预览
 
 <img src="https://github.com/warkiz/IndicatorSeekBar/blob/master/gif/overview.png?raw=true" width = "392" height = "115"/>
