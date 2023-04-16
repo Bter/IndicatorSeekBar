@@ -6,18 +6,17 @@ import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.StateListDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcelable;
-import android.support.annotation.ColorInt;
-import android.support.annotation.NonNull;
-import android.support.annotation.RequiresApi;
 import android.text.TextPaint;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
@@ -27,6 +26,10 @@ import android.view.ViewParent;
 import android.view.WindowManager;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
+
+import androidx.annotation.ColorInt;
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -120,6 +123,7 @@ public class IndicatorSeekBar extends View {
     private boolean mTickMarksEndsHide;//true if want to hide the tickMarks which in both side ends of seek bar
     private boolean mTickMarksSweptHide;//true if want to hide the tickMarks which on thumb left.
     private int mTickMarksSize;//the width of tickMark
+    private boolean isb_tick_color_with_progress;
     //track
     private boolean mTrackRoundedCorners;
     private RectF mProgressTrack;//the background track on the thumb start
@@ -130,15 +134,25 @@ public class IndicatorSeekBar extends View {
     private int mProgressTrackColor;
     private int[] mSectionTrackColorArray;//save the color for each section tracks.
     private boolean mCustomTrackSectionColorResult;//true to confirm to custom the section track color
+    private Integer isb_track_progress_center_color ;
+    private Integer isb_track_progress_end_color;
+    private int[] colors;
+    private LinearGradient linearGradient;
+    private boolean isb_track_progress_gradient_fixed_width = true;
+    private float lastProgressGradientWidth = -1;
     //thumb
     private float mThumbRadius;//the thumb's radius
     private float mThumbTouchRadius;//the thumb's radius when touching
+    private boolean mThumbTouchScale = true;
     private Bitmap mThumbBitmap;//the drawable bitmap for thumb
     private int mThumbColor;
     private int mThumbSize;
     private Drawable mThumbDrawable;
+    private float isb_thumb_drawable_offset;
     private Bitmap mPressedThumbBitmap;//the bitmap for pressing status
     private int mPressedThumbColor;//the color for pressing status
+    private boolean isb_thumb_color_with_progress;
+    private boolean mThumbLimitInTrack;
     //thumb text
     private boolean mShowThumbText;//the place where the thumb text show .
     private float mThumbTextY;//the thumb text's drawing Y anchor
@@ -191,6 +205,7 @@ public class IndicatorSeekBar extends View {
             return;
         }
         TypedArray ta = context.obtainStyledAttributes(attrs, R.styleable.IndicatorSeekBar);
+        float sizePercent = ta.getFloat(R.styleable.IndicatorSeekBar_isb_SizePercent,1f);
         //seekBar
         mMax = ta.getFloat(R.styleable.IndicatorSeekBar_isb_max, builder.max);
         mMin = ta.getFloat(R.styleable.IndicatorSeekBar_isb_min, builder.min);
@@ -204,14 +219,29 @@ public class IndicatorSeekBar extends View {
         //track
         mBackgroundTrackSize = ta.getDimensionPixelSize(R.styleable.IndicatorSeekBar_isb_track_background_size, builder.trackBackgroundSize);
         mProgressTrackSize = ta.getDimensionPixelSize(R.styleable.IndicatorSeekBar_isb_track_progress_size, builder.trackProgressSize);
+        mBackgroundTrackSize = (int) (mBackgroundTrackSize * sizePercent);
+        mProgressTrackSize = (int) (mProgressTrackSize * sizePercent);
         mBackgroundTrackColor = ta.getColor(R.styleable.IndicatorSeekBar_isb_track_background_color, builder.trackBackgroundColor);
         mProgressTrackColor = ta.getColor(R.styleable.IndicatorSeekBar_isb_track_progress_color, builder.trackProgressColor);
         mTrackRoundedCorners = ta.getBoolean(R.styleable.IndicatorSeekBar_isb_track_rounded_corners, builder.trackRoundedCorners);
+        if(ta.hasValue(R.styleable.IndicatorSeekBar_isb_track_progress_center_color)) {
+            isb_track_progress_center_color = ta.getColor(R.styleable.IndicatorSeekBar_isb_track_progress_center_color, mProgressTrackColor);
+        }
+        if(ta.hasValue(R.styleable.IndicatorSeekBar_isb_track_progress_end_color)) {
+            isb_track_progress_end_color = ta.getColor(R.styleable.IndicatorSeekBar_isb_track_progress_end_color, mProgressTrackColor);
+        }
+        isb_track_progress_gradient_fixed_width = ta.getBoolean(R.styleable.IndicatorSeekBar_isb_track_progress_gradient_fixed_width,true);
         //thumb
         mThumbSize = ta.getDimensionPixelSize(R.styleable.IndicatorSeekBar_isb_thumb_size, builder.thumbSize);
+        mThumbSize = (int) (mThumbSize * sizePercent);
+        mThumbTouchScale = ta.getBoolean(R.styleable.IndicatorSeekBar_isb_thumb_touching_scale,true);
         mThumbDrawable = ta.getDrawable(R.styleable.IndicatorSeekBar_isb_thumb_drawable);
+        isb_thumb_drawable_offset = ta.getDimensionPixelOffset(R.styleable.IndicatorSeekBar_isb_thumb_drawable_offset,0);
         mAdjustAuto = ta.getBoolean(R.styleable.IndicatorSeekBar_isb_thumb_adjust_auto, true);
         initThumbColor(ta.getColorStateList(R.styleable.IndicatorSeekBar_isb_thumb_color), builder.thumbColor);
+        isb_thumb_color_with_progress = ta.getBoolean(R.styleable.IndicatorSeekBar_isb_thumb_color_with_progress,false);
+        mHideThumb = ta.getBoolean(R.styleable.IndicatorSeekBar_isb_thumb_hide,false);
+        mThumbLimitInTrack = ta.getBoolean(R.styleable.IndicatorSeekBar_isb_thumb_limit_in_track,false);
         //thumb text
         mShowThumbText = ta.getBoolean(R.styleable.IndicatorSeekBar_isb_show_thumb_text, builder.showThumbText);
         mThumbTextColor = ta.getColor(R.styleable.IndicatorSeekBar_isb_thumb_text_color, builder.thumbTextColor);
@@ -219,13 +249,16 @@ public class IndicatorSeekBar extends View {
         mTicksCount = ta.getInt(R.styleable.IndicatorSeekBar_isb_ticks_count, builder.tickCount);
         mShowTickMarksType = ta.getInt(R.styleable.IndicatorSeekBar_isb_show_tick_marks_type, builder.showTickMarksType);
         mTickMarksSize = ta.getDimensionPixelSize(R.styleable.IndicatorSeekBar_isb_tick_marks_size, builder.tickMarksSize);
+        mTickMarksSize = (int) (mTickMarksSize * sizePercent);
         initTickMarksColor(ta.getColorStateList(R.styleable.IndicatorSeekBar_isb_tick_marks_color), builder.tickMarksColor);
         mTickMarksDrawable = ta.getDrawable(R.styleable.IndicatorSeekBar_isb_tick_marks_drawable);
         mTickMarksSweptHide = ta.getBoolean(R.styleable.IndicatorSeekBar_isb_tick_marks_swept_hide, builder.tickMarksSweptHide);
         mTickMarksEndsHide = ta.getBoolean(R.styleable.IndicatorSeekBar_isb_tick_marks_ends_hide, builder.tickMarksEndsHide);
+        isb_tick_color_with_progress = ta.getBoolean(R.styleable.IndicatorSeekBar_isb_tick_color_with_progress,false);
         //tickTexts
         mShowTickText = ta.getBoolean(R.styleable.IndicatorSeekBar_isb_show_tick_texts, builder.showTickText);
         mTickTextsSize = ta.getDimensionPixelSize(R.styleable.IndicatorSeekBar_isb_tick_texts_size, builder.tickTextsSize);
+        mTickTextsSize = (int) (mTickTextsSize * sizePercent);
         initTickTextsColor(ta.getColorStateList(R.styleable.IndicatorSeekBar_isb_tick_texts_color), builder.tickTextsColor);
         mTickTextsCustomArray = ta.getTextArray(R.styleable.IndicatorSeekBar_isb_tick_texts_array);
         initTextsTypeface(ta.getInt(R.styleable.IndicatorSeekBar_isb_tick_texts_typeface, -1), builder.tickTextsTypeFace);
@@ -233,6 +266,7 @@ public class IndicatorSeekBar extends View {
         mShowIndicatorType = ta.getInt(R.styleable.IndicatorSeekBar_isb_show_indicator, builder.showIndicatorType);
         mIndicatorColor = ta.getColor(R.styleable.IndicatorSeekBar_isb_indicator_color, builder.indicatorColor);
         mIndicatorTextSize = ta.getDimensionPixelSize(R.styleable.IndicatorSeekBar_isb_indicator_text_size, builder.indicatorTextSize);
+        mIndicatorTextSize = (int) (mIndicatorTextSize * sizePercent);
         mIndicatorTextColor = ta.getColor(R.styleable.IndicatorSeekBar_isb_indicator_text_color, builder.indicatorTextColor);
         int indicatorContentViewId = ta.getResourceId(R.styleable.IndicatorSeekBar_isb_indicator_content_layout, 0);
         if (indicatorContentViewId > 0) {
@@ -506,14 +540,45 @@ public class IndicatorSeekBar extends View {
                 }
             }
         } else {
-            //draw progress track
-            mStockPaint.setColor(mProgressTrackColor);
-            mStockPaint.setStrokeWidth(mProgressTrackSize);
-            canvas.drawLine(mProgressTrack.left, mProgressTrack.top, mProgressTrack.right, mProgressTrack.bottom, mStockPaint);
             //draw BG track
             mStockPaint.setColor(mBackgroundTrackColor);
             mStockPaint.setStrokeWidth(mBackgroundTrackSize);
             canvas.drawLine(mBackgroundTrack.left, mBackgroundTrack.top, mBackgroundTrack.right, mBackgroundTrack.bottom, mStockPaint);
+
+            //draw progress track
+            if(colors == null && (isb_track_progress_center_color != null || isb_track_progress_end_color != null)){
+                if(isb_track_progress_center_color != null && isb_track_progress_end_color != null) {
+                    colors = new int[]{mProgressTrackColor,isb_track_progress_center_color,isb_track_progress_end_color};
+                }else if(isb_track_progress_center_color != null){
+                    colors = new int[]{mProgressTrackColor,isb_track_progress_center_color};
+                }else{
+                    colors = new int[]{mProgressTrackColor,isb_track_progress_end_color};
+                }
+
+                if(mR2L){
+                    colors = ArrayUtil.reverse(colors);
+                }
+            }
+            if(colors != null) {
+                if(isb_track_progress_gradient_fixed_width) {
+                    if (linearGradient == null) {
+                        linearGradient = new LinearGradient(0, 0, getWidth(), mProgressTrack.bottom - mProgressTrack.top, colors, null, Shader.TileMode.CLAMP);
+                    }
+                }else if(lastProgressGradientWidth != getThumbCenterX()){
+                    lastProgressGradientWidth = getThumbCenterX();
+                    linearGradient = new LinearGradient(mProgressTrack.left, mProgressTrack.top, mProgressTrack.right, mProgressTrack.bottom, colors, null, Shader.TileMode.CLAMP);
+                }
+            }
+            if(linearGradient == null) {
+                mStockPaint.setColor(mProgressTrackColor);
+            }else {
+                mStockPaint.setShader(linearGradient);
+            }
+            mStockPaint.setStrokeWidth(mProgressTrackSize);
+            if(mProgressTrack.width() != 0) {
+                canvas.drawLine(mProgressTrack.left, mProgressTrack.top, mProgressTrack.right, mProgressTrack.bottom, mStockPaint);
+            }
+            mStockPaint.setShader(null);
         }
     }
 
@@ -522,6 +587,11 @@ public class IndicatorSeekBar extends View {
             return;
         }
         float thumbCenterX = getThumbCenterX();
+        if(isb_tick_color_with_progress && linearGradient != null){
+            if(!mR2L) {
+                mStockPaint.setShader(linearGradient);
+            }
+        }
         for (int i = 0; i < mTickMarksX.length; i++) {
             float thumbPosFloat = getThumbPosOnTickFloat();
             if (mTickMarksSweptHide) {
@@ -541,6 +611,13 @@ public class IndicatorSeekBar extends View {
                 mStockPaint.setColor(getLeftSideTickColor());
             } else {
                 mStockPaint.setColor(getRightSideTickColor());
+                if(mR2L){
+                    if(isb_tick_color_with_progress && linearGradient != null && mStockPaint.getShader() != linearGradient){
+                        mStockPaint.setShader(linearGradient);
+                    }
+                }else {
+                    mStockPaint.setShader(null);
+                }
             }
             if (mTickMarksDrawable != null) {
                 if (mSelectTickMarksBitmap == null || mUnselectTickMarksBitmap == null) {
@@ -572,6 +649,8 @@ public class IndicatorSeekBar extends View {
                 canvas.drawRect(mTickMarksX[i] - mTickMarksSize / 2.0f, mProgressTrack.top - mTickMarksSize / 2.0f, mTickMarksX[i] + mTickMarksSize / 2.0f, mProgressTrack.top + mTickMarksSize / 2.0f, mStockPaint);
             }
         }
+
+        mStockPaint.setShader(null);
     }
 
     private void drawTickTexts(Canvas canvas) {
@@ -610,11 +689,9 @@ public class IndicatorSeekBar extends View {
         if (mHideThumb) {
             return;
         }
-        float thumbCenterX = getThumbCenterX();
+        float thumbCenterX = adjustThumbCenterXWithThumb(getThumbCenterX());
+
         if (mThumbDrawable != null) {//check user has set thumb drawable or not.ThumbDrawable first, thumb color for later.
-            if (mThumbBitmap == null || mPressedThumbBitmap == null) {
-                initThumbBitmap();
-            }
             if (mThumbBitmap == null || mPressedThumbBitmap == null) {
                 //please check your selector drawable's format and correct.
                 throw new IllegalArgumentException("the format of the selector thumb drawable is wrong!");
@@ -631,8 +708,43 @@ public class IndicatorSeekBar extends View {
             } else {
                 mStockPaint.setColor(mThumbColor);
             }
-            canvas.drawCircle(thumbCenterX, mProgressTrack.top, mIsTouching ? mThumbTouchRadius : mThumbRadius, mStockPaint);
+            if(isb_thumb_color_with_progress && linearGradient != null){
+                mStockPaint.setShader(linearGradient);
+            }
+
+            canvas.drawCircle(thumbCenterX, mProgressTrack.top, (mIsTouching && mThumbTouchScale) ? mThumbTouchRadius : mThumbRadius, mStockPaint);
+            mStockPaint.setShader(null);
         }
+    }
+
+    private float adjustThumbCenterXWithThumb(float thumbCenterX){
+        float radius = mThumbRadius;
+        if (mThumbDrawable != null) {
+            if (mThumbBitmap == null || mPressedThumbBitmap == null) {
+                initThumbBitmap();
+            }
+            radius = mThumbBitmap.getWidth() / 2.0f - isb_thumb_drawable_offset;
+        }
+        if(mThumbLimitInTrack){
+            if(thumbCenterX - radius < getTrackLeft()){
+                thumbCenterX = getTrackLeft() + radius;
+                if(!mClearPadding){
+                    thumbCenterX -= mStockPaint.getStrokeWidth() / 2;
+                }
+            }else if(thumbCenterX + radius > getTrackRight()){
+                thumbCenterX = getTrackRight() - radius;
+                if(!mClearPadding){
+                    thumbCenterX += mStockPaint.getStrokeWidth() / 2;
+                }
+            }
+
+            if(thumbCenterX - radius < 0){
+                thumbCenterX = radius;
+            }else if(thumbCenterX + radius > getMeasuredWidth()){
+                thumbCenterX = getMeasuredWidth() - radius;
+            }
+        }
+        return thumbCenterX;
     }
 
     private void drawThumbText(Canvas canvas) {
@@ -641,6 +753,20 @@ public class IndicatorSeekBar extends View {
         }
         mTextPaint.setColor(mThumbTextColor);
         canvas.drawText(getProgressString(mProgress), getThumbCenterX(), mThumbTextY, mTextPaint);
+    }
+
+    private float getTrackLeft(){
+        if (mR2L) {
+            return mBackgroundTrack.left;
+        }
+        return mProgressTrack.left;
+    }
+
+    private float getTrackRight(){
+        if (mR2L) {
+            return mProgressTrack.right;
+        }
+        return mBackgroundTrack.right;
     }
 
     private float getThumbCenterX() {
@@ -1314,9 +1440,9 @@ public class IndicatorSeekBar extends View {
             }
             mIndicator.iniPop();
             if (mIndicator.isShowing()) {
-                mIndicator.update(getThumbCenterX());
+                mIndicator.update(adjustThumbCenterXWithThumb(getThumbCenterX()));
             } else {
-                mIndicator.show(getThumbCenterX());
+                mIndicator.show(adjustThumbCenterXWithThumb(getThumbCenterX()));
             }
         }
     }
@@ -1346,7 +1472,7 @@ public class IndicatorSeekBar extends View {
         mIndicator.setProgressTextView(getIndicatorTextString());
         mIndicatorContentView.measure(0, 0);
         int measuredWidth = mIndicatorContentView.getMeasuredWidth();
-        float thumbCenterX = getThumbCenterX();
+        float thumbCenterX = adjustThumbCenterXWithThumb(getThumbCenterX());
 
         if (mScreenWidth == -1) {
             DisplayMetrics metric = new DisplayMetrics();
@@ -1365,7 +1491,7 @@ public class IndicatorSeekBar extends View {
             indicatorOffset = 0;
             arrowOffset = -(int) (measuredWidth / 2 - thumbCenterX);
         } else {
-            indicatorOffset = (int) (getThumbCenterX() - measuredWidth / 2);
+            indicatorOffset = (int) (adjustThumbCenterXWithThumb(getThumbCenterX()) - measuredWidth / 2);
             arrowOffset = 0;
         }
 

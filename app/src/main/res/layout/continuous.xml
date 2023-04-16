@@ -24,7 +24,36 @@
             android:layout_height="wrap_content"
             app:isb_indicator_text_size="28sp"
             app:isb_progress="50" />
-
+        <com.warkiz.widget.IndicatorSeekBar
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_marginTop="11dp"
+            android:layout_marginLeft="9dp"
+            android:layout_marginRight="9dp"
+            android:paddingLeft="7dp"
+            android:paddingRight="7dp"
+            app:isb_clear_default_padding="false"
+            app:isb_r2l="false"
+            app:isb_max="100"
+            app:isb_min="0"
+            app:isb_progress="100"
+            app:isb_show_indicator="none"
+            app:isb_thumb_color="@color/color_blue"
+            app:isb_thumb_color_with_progress="true"
+            app:isb_thumb_touching_scale="false"
+            app:isb_thumb_hide="false"
+            app:isb_thumb_adjust_auto="false"
+            app:isb_thumb_limit_in_track="true"
+            app:isb_thumb_size="15dp"
+            app:isb_thumb_drawable_offset="8dp"
+            app:isb_track_background_color="#E7E7E7"
+            app:isb_track_background_size="2.5dp"
+            app:isb_track_progress_color="#E60012"
+            app:isb_track_progress_end_color="#004EA2"
+            app:isb_track_progress_size="2.5dp"
+            app:isb_track_rounded_corners="true"
+            app:isb_track_progress_gradient_fixed_width="true"
+             />
         <TextView
             style="@style/subtitle_text_style"
             android:text="2. progress_value_float=true, show_thumb_text=true \n show_indicator=none" />
